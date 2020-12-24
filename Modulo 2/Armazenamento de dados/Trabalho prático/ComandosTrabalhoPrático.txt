@@ -1,0 +1,53 @@
+3)
+
+db.livros.find().count()
+431 livros
+
+4)
+db.livros.find({isbn:{$lte: "1000000000"}}).count() 
+4 livros
+
+5)
+db.livros.find({isbn:{$lte: "1617200000"}}).count()
+22 livros
+
+6)
+db.livros.find({isbn:{$lte: "1617200000"}},{"title":1, "isbn":1}).pretty()
+db.livros.find({isbn:{$lte: "1617200000"}},{"title":1, "isbn":1})
+"Graphics File Formats"
+
+7) rodar o comando
+db.livros.insertMany([
+{"title" : "Saci Pererê", "isbn" : "100", "pageCount" : 0, "publishedDate": ISODate("2000-10-01T07:00:00Z"), "status" : "PUBLISH", "authors" : [ ], "categories" : [ ]},
+{"title" : "A Cuca", "isbn" : "99", "pageCount" : 0, "publishedDate": ISODate("2000-10-01T07:00:00Z"), "status" : "PUBLISH", "authors" : [ ], "categories" : [ ]},
+{"title" : "Curupira", "isbn" : "98", "pageCount" : 0, "publishedDate": ISODate("2000-10-01T07:00:00Z"), "status" : "PUBLISH", "authors" : [ ], "categories" : [ ]},
+{"title" : "Jeca Tatu", "isbn" : "97", "pageCount" : 0, "publishedDate": ISODate("2000-10-01T07:00:00Z"), "status" : "PUBLISH", "authors" : [ ], "categories" : [ ]}
+])
+
+
+8)
+db.livros.find({isbn:{$lte: "100000"}}).count()
+5 livros
+
+9)
+db.livros.find({isbn:{$lte: "100000"}}).limit(2)
+db.livros.find({isbn:{$lte: "100000"}}).pretty().limit(2)
+db.livros.find({isbn:{$lte: "100000"}},{"title":1, "_id":0}).limit(2)
+{ "title" : "Comprehensive Networking Glossary and Acronym Guide" }
+{ "title" : "Personal Videoconferencing" }
+
+10)
+db.livros.find({isbn:{$lte: "100000"}}).pretty().skip(2)
+db.livros.find({isbn:{$lte: "100000"}},{"title":1, "_id":0}).skip(2)
+{ "title" : "Multimedia Computing" }
+{ "title" : "Implementing SAP R/3, Second Edition" }
+{ "title" : "Saci Pererê" }
+
+11) onde houve problemas
+db.livros.find({title: /Windows/}).count() 
+11 livros
+
+12)
+db.livros.find({}, {"pageCount":1, "_id":0}).sort({"pageCount":-1}).limit(2)
+{ "pageCount" : 1101 }
+{ "pageCount" : 1096 }

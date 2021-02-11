@@ -1,0 +1,98 @@
+#Listar Índices
+GET /_cat/indices
+
+
+#Inserir documento com ID automático + criar índice
+POST /equipamentos/_doc
+{ 
+    "nome": "DESK01",
+    "tipo": "DESKTOP"
+}
+
+
+#Confirmar a existência de um índice
+HEAD /equipamentos
+
+#Consultar documentos no índice
+GET equipamentos/_search 
+
+
+#Error ao inserir documento com ID automático com PUT
+PUT /equipamentos/_doc
+{ 
+    "nome": "DESK02",
+    "tipo": "DESKTOP"
+}
+
+
+#Inserir documento com ID explícito + criar índice
+POST /equipamentos/_doc/1
+{ 
+    "nome": "DESK01",
+    "tipo": "DESKTOP"
+}
+
+#Consultar documentos no índice
+GET equipamentos/_search 
+
+
+#Gerando nova versão
+POST /equipamentos/_doc/1
+{ 
+    "nome": "DESK01",
+    "tipo": "DESKTOP"
+}
+
+#Consultar documentos no índice
+GET equipamentos/_search 
+
+
+#Usar PUT para inserir documento com ID explícito + criar índice
+PUT /equipamentos/_doc/2
+{ 
+    "nome": "DESK03",
+    "tipo": "DESKTOP"
+}
+
+
+#Consultar documentos no índice
+GET equipamentos/_search 
+
+#Consultar um documento em específico pelo ID
+GET /equipamentos/_doc/1
+
+#Consultar um copnjunto de documentos
+GET /equipamentos/_doc/_mget
+{
+  "docs": [
+    {
+      "_id": "1"
+    },
+    {
+      "_id": "2"
+    }
+  ]
+}
+
+
+#Contar documentos do índice
+GET /_cat/count/equipamentos
+
+#Contar documentos do cluster inteiro
+GET /_cat/count
+
+#Estatísticas dos índices
+GET /_stats
+
+#Quantidade de shards alocados para cada node + espaço em disco
+GET /_cat/allocation
+
+
+#Topologia do cluster
+GET /_cat/nodes
+GET /_cat/master
+GET /_cat/nodeattrs
+
+
+#Excluir índice
+DELETE /equipamentos

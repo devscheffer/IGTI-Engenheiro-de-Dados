@@ -1,0 +1,248 @@
+--Demonstracao MongoDBSharding
+
+--Excluir ambiente de replica set
+
+docker stop btc-node01
+docker stop btc-node02
+docker stop btc-node03
+
+docker rm btc-node01
+docker rm btc-node02
+docker rm btc-node03
+
+
+
+--Criando os nós ConfigServer: 
+
+docker run --name mongo-config01 --net net-cluster-mongo -d mongo mongod --configsvr --replSet configserver --port 27017 
+docker run --name mongo-config02 --net net-cluster-mongo -d mongo mongod --configsvr --replSet configserver --port 27017 
+docker run --name mongo-config03 --net net-cluster-mongo -d mongo mongod --configsvr --replSet configserver --port 27017 
+
+
+
+--Configuração do replica-set nos ConfigServers: 
+
+docker exec -it mongo-config01 mongo 
+
+rs.initiate ( 
+   { 
+      _id: "configserver",       configsvr: true,       version: 1,       members: 
+      [ 
+         { _id: 0, host : "mongo-config01:27017" }, 
+         { _id: 1, host : "mongo-config02:27017" }, 
+         { _id: 2, host : "mongo-config03:27017" } 
+      ] 
+   } 
+) 
+
+
+
+--Criando os Shard Replica Sets
+
+--Shard 1 
+
+docker run --name btc-shard-node01 --net net-cluster-mongo -d mongo mongod -port 27018 --shardsvr --replSet shard01 
+docker run --name btc-shard-node02 --net net-cluster-mongo -d mongo mongod -port 27018 --shardsvr --replSet shard01 
+docker run --name btc-shard-node03 --net net-cluster-mongo -d mongo mongod -port 27018 --shardsvr --replSet shard01 
+
+
+--Shard 2 
+
+docker run --name btc-shard-node04 --net net-cluster-mongo -d mongo mongod -port 27019 --shardsvr --replSet shard02 
+docker run --name btc-shard-node05 --net net-cluster-mongo -d mongo mongod -port 27019 --shardsvr --replSet shard02 
+docker run --name btc-shard-node06 --net net-cluster-mongo -d mongo mongod -port 27019 --shardsvr --replSet shard02 
+
+
+--Shard 3 
+
+docker run --name btc-shard-node07 --net net-cluster-mongo -d mongo mongod -port 27020 --shardsvr --replSet shard03 
+docker run --name btc-shard-node08 --net net-cluster-mongo -d mongo mongod -port 27020 --shardsvr --replSet shard03 
+docker run --name btc-shard-node09 --net net-cluster-mongo -d mongo mongod -port 27020 --shardsvr --replSet shard03 
+
+
+
+--Configurar o replica set para cada Shard
+
+--Shard 1 
+docker exec -it btc-shard-node01 mongo --port 27018 
+
+rs.initiate( 
+   { 
+      _id: "shard01",       version: 1,       members: 
+      [ 
+         { _id: 0, host : "btc-shard-node01:27018" },          { _id: 1, host : "btc-shard-node02:27018" },          { _id: 2, host : "btc-shard-node03:27018" }, 
+      ] 
+   } 
+) 
+
+
+--Shard 2 
+docker exec -it btc-shard-node04 mongo --port 27019 
+
+rs.initiate( 
+   { 
+      _id: "shard02",       version: 1,       members: 
+      [ 
+         { _id: 0, host : "btc-shard-node04:27019" },          { _id: 1, host : "btc-shard-node05:27019" },          { _id: 2, host : "btc-shard-node06:27019" }, 
+      ] 
+   } 
+) 
+
+
+--Shard 3 
+docker exec -it btc-shard-node07 mongo --port 27020 
+
+rs.initiate( 
+   { 
+      _id: "shard03",       version: 1,       members: 
+      [ 
+         { _id: 0, host : "btc-shard-node07:27020" },          { _id: 1, host : "btc-shard-node08:27020" },          { _id: 2, host : "btc-shard-node09:27020" }, 
+      ] 
+   } 
+) 
+
+
+
+--Criar o mongos (router)
+
+--docker exec -it mongo-router /bin/bash
+
+docker run -p 27017:27017 --name mongo-router --net net-cluster-mongo -d mongo mongos --port 27017 --configdb configserver/"mongo-config01:27017, mongo-config02:27017, mongo-config03:27017" --bind_ip_all 
+
+
+
+--Configurar shards no router: 
+
+docker exec -it mongo-router mongo 
+
+--Mostrar que está habilitado, mas sem réplicas adicionadas
+sh.status()
+
+
+--Shard 1 
+sh.addShard("shard01/btc-shard-node01:27018") 
+sh.addShard("shard01/btc-shard-node02:27018") 
+sh.addShard("shard01/btc-shard-node03:27018")  
+
+--Shard 2
+sh.addShard("shard02/btc-shard-node04:27019") 
+sh.addShard("shard02/btc-shard-node05:27019") 
+sh.addShard("shard02/btc-shard-node06:27019")  
+
+
+
+--Mostrar status dos shards
+sh.status()
+
+
+
+--Criar banco com shard habilitado
+
+use BDExemploShard
+
+sh.enableSharding("BDExemploShard")
+
+
+--Criar collection com shard  
+
+db.exampleCollection.ensureIndex( { _id : "hashed" } ) 
+
+sh.shardCollection( "BDExemploShard.exampleCollection", { "_id" : "hashed" } )
+
+
+
+--Inserir documentos na collection
+
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 01'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 02'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 03'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 04'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 05'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 06'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 07'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 08'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 09'});
+
+
+--Checar distribuição dos dados
+db.exampleCollection.getShardDistribution()
+
+
+
+--Inserir MAIS documentos na collection
+
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 10'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 11'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 12'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 13'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 14'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 15'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 16'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 17'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 18'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 19'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 20'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 21'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 22'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 23'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 24'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 25'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 26'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 27'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 28'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 29'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 30'});
+
+
+
+--Checar distribuição dos dados
+db.exampleCollection.getShardDistribution()
+
+
+
+--Checar os dados direto nos shards
+
+docker exec -it btc-shard-node01 mongo --port 27018 
+use BDExemploShard
+db.exampleCollection.find().pretty()
+
+
+
+--Adicionar Shard 3
+sh.addShard("shard03/btc-shard-node07:27020") 
+sh.addShard("shard03/btc-shard-node08:27020") 
+sh.addShard("shard03/btc-shard-node09:27020")  
+
+
+sh.status()
+
+--Checar distribuição dos dados
+db.exampleCollection.getShardDistribution()
+
+
+--Adicionar mais dados
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 31'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 32'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 33'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 34'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 35'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 36'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 37'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 38'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 39'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 40'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 41'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 42'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 43'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 44'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 45'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 46'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 47'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 48'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 49'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 50'});
+db.exampleCollection.insert({"data_criacao_documento":new Date(), "descricao_solicitacao":'Demo BTC BDA 51'});
+
+
+--Checar distribuição dos dados
+db.exampleCollection.getShardDistribution()

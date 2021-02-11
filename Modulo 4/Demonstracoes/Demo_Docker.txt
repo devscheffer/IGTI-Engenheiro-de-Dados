@@ -1,0 +1,81 @@
+--Listar as imagens no repositório local
+docker images
+
+--Procurar imagens no repositório da Docker
+docker search mssql
+
+--SQL no Linux está descontinuada no repositório da Docker
+--Baixar imagem de SQL no Linux do repositório da Microsoft
+docker pull mcr.microsoft.com/mssql/server:2019-latest
+
+--Listar as imagens no repositório local
+docker images
+
+--Instanciar um container de SQL no Linux com imagem do repositório da Microsoft
+docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=T3mpor4ria" -p 1433:1433 --name serverbtcsql -h serverbtcsql -d mcr.microsoft.com/mssql/server:2019-latest
+
+--Mostrar todos os containers
+docker ps -a
+
+--Mostrar os containers em execução
+docker ps
+
+--Mostrar Dashboard do Docker
+
+--Entrar no container
+docker exec -it serverbtcsql "bash"
+
+--Conectar no SQL
+/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "T3mpor4ria"
+
+
+--Usando o SQL
+
+CREATE DATABASE TestDB
+GO
+
+SELECT Name from sys.Databases
+GO
+
+
+USE TestDB
+GO
+
+CREATE TABLE Inventory (id INT, name NVARCHAR(50), quantity INT)
+GO
+
+INSERT INTO Inventory VALUES (1, 'banana', 150)
+GO
+INSERT INTO Inventory VALUES (2, 'orange', 154)
+GO
+
+SELECT * FROM Inventory WHERE quantity > 152
+GO
+
+
+--Sair do CMD
+quit
+
+--Sair do Container
+exit
+
+
+--Pegar IP do host para logar no SQL dentro do Container
+ipconfig
+
+
+--Parar o Container
+docker stop serverbtcsql
+
+--Conferir status do(s) container(s)
+docker ps -a
+
+--Iniciar container
+docker start serverbtcsql
+
+--Verificar que dados continuam lá
+
+--Remover container
+docker stop serverbtcsql
+docker rm serverbtcsql
+

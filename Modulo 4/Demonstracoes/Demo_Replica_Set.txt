@@ -1,0 +1,147 @@
+﻿--Demonstracao MongoDB Replica Set
+
+--Listar servidores existentes
+docker ps -a
+
+--Listar servidores em execução
+docker ps
+
+--Como aumentar a performance com os servidores stand alone: escalar verticalmente, duplicar o banco via storage, F5 no meio, etc
+
+
+--Configurar o Replica Set
+
+docker network ls
+--docker network create net-cluster-mongo;
+
+
+docker run -d -p 30001:27017 --name btc-node01 -h btc-node01 --net net-cluster-mongo mongo mongod --replSet lab-btc_rs0
+docker run -d -p 30002:27017 --name btc-node02 -h btc-node02 --net net-cluster-mongo mongo mongod --replSet lab-btc_rs0
+docker run -d -p 30003:27017 --name btc-node03 -h btc-node03 --net net-cluster-mongo mongo mongod --replSet lab-btc_rs0
+
+
+docker exec -it btc-node01 /bin/bash
+docker exec -it btc-node02 /bin/bash
+docker exec -it btc-node03 /bin/bash
+
+
+
+mongo
+
+config={
+   _id : "lab-btc_rs0",
+   members: [
+      { _id: 0, host: "btc-node01:27017" },
+      { _id: 1, host: "btc-node02:27017" }
+   ]
+}
+
+
+rs.initiate(config) 
+
+rs.status()
+
+
+use BDBTC
+
+db.databaseCriado.insert({"data_criacao_database":new Date(), "motivo_solicitacao":'Laboratório de Bootcamp'});
+
+show collections
+
+db.databaseCriado.find().pretty()
+
+
+--No 02
+
+rs.slaveOk();
+rs.secondaryOk()
+
+
+use BDBTC
+show collections
+db.databaseCriado.find().pretty()
+
+
+--No 01
+
+db.databaseCriado.insert({"data_criacao_database":new Date(), "motivo_solicitacao":'Laboratório de Bootcamp - 02'});
+
+
+--Voltar no 02
+db.databaseCriado.find().pretty()
+
+
+
+--É possível inserir um novo documento em uma collection no secundário?
+db.databaseCriado.insert({"data_criacao_database":new Date(), "motivo_solicitacao":'Laboratório de Bootcamp - 03'});
+
+--E criar uma nova collection?
+db.Equipamentos.insert({"nome_equipamento":'MAC0001', "data_insercao":new Date() });
+
+
+
+--Sair e entrar com replica Set
+
+mongo --host "lab-btc_rs0/btc-node01:27017,btc-node02:27017"
+
+
+use BDBTC
+show collections
+db.Equipamentos.find().pretty()
+
+
+
+--Adicionar o node 03
+
+ rs.add("btc-node03:27017")
+
+ rs.status()
+
+
+
+ --Logar no 03
+
+ mongo
+
+rs.slaveOk();
+
+
+use BDBTC
+show collections
+
+db.Equipamentos.find().pretty()
+
+
+--Eleição automática
+--Parar o primário
+
+docker stop 
+
+
+rs.status()
+
+--Subir o ex-primário novamente
+
+rs.status()
+
+
+
+--No 01
+
+mongo --host "lab-btc_rs0/btc-node01:27017,btc-node02:27017,btc-node03:27017"
+
+mongo "mongodb://btc-node01:27017,btc-node02:27017,btc-node03:27017/?replicaSet=lab-btc_rs0&readPreference=secondary"
+
+
+--Remover os secundários do cluster
+
+use admin 
+
+rs.remove("btc-node03:27017")
+rs.remove("btc-node02:27017")
+
+
+
+
+
+
